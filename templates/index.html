@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>طبقه‌بند غذا و منو | Food &amp; Menu Classifier</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card: #ffffff;
+    --border: #e2e2e0;
+    --text: #1f1f1f;
+    --muted: #6b6b68;
+    --accent: #b5502f;
+    --accent-bg: #fbeee7;
+    --ok: #2e7d32;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Tahoma, "Vazirmatn", sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    width: 100%;
+    max-width: 760px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    margin: 0 0 0.25rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+    font-size: 0.95rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 130px;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    direction: auto;
+  }
+  .hint {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0.4rem 0 0.9rem;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+  th, td {
+    text-align: start;
+    padding: 0.55rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    direction: auto;
+  }
+  th { color: var(--muted); font-weight: 600; }
+  .cat { font-weight: 600; }
+  .cat .en { color: var(--muted); font-weight: 400; font-size: 0.85em; }
+  .badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+  .badge.unknown { background: #fdecea; color: var(--warn); }
+  .conf { color: var(--muted); font-size: 0.85rem; }
+  .cuisine-box {
+    background: var(--accent-bg);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+  }
+  .cuisine-box strong { color: var(--accent); }
+  footer {
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>طبقه‌بند غذا و منو &middot; Food &amp; Menu Classifier</h1>
+  <p class="subtitle">نام یک غذا یا کل منو را وارد کنید (هر خط یک آیتم) — فارسی یا انگلیسی.
+  Enter one dish name or a full menu (one item per line) — Persian or English.</p>
+
+  <form class="card" method="post">
+    <textarea name="items_text" placeholder="پیتزا چیز برگر&#10;Cheeseburger&#10;دوغ">{{ items_text }}</textarea>
+    <p class="hint">هر خط = یک آیتم منو. Each line = one menu item.</p>
+    <button type="submit">طبقه‌بندی کن &middot; Classify</button>
+  </form>
+
+  {% if rows is not none %}
+  <div class="card">
+    {% if cuisine %}
+    <div class="cuisine-box">
+      حدس کوزین رستوران / Predicted restaurant cuisine:
+      <strong>{{ cuisine }} &middot; {{ cuisine_en }}</strong>
+      {% if distribution %}
+      <div class="conf" style="margin-top:0.4rem">
+        {% for cat, cat_en, count in distribution %}
+          {{ cat }} ({{ cat_en }}): {{ count }}{% if not loop.last %} &nbsp;|&nbsp; {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if rows|length == 0 %}
+      <p class="hint">چیزی برای طبقه‌بندی وارد نشد. Nothing to classify.</p>
+    {% else %}
+    <table>
+      <thead>
+        <tr>
+          <th>ورودی / Input</th>
+          <th>دسته‌ی اصلی / Main</th>
+          <th>زیردسته / Sub</th>
+          <th>روش / Method</th>
+          <th>اطمینان / Conf.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.input }}</td>
+          {% if r.main_fa %}
+          <td class="cat">{{ r.main_fa }}<br><span class="en">{{ r.main_en }}</span></td>
+          {% else %}
+          <td><span class="badge unknown">نامشخص / unknown</span></td>
+          {% endif %}
+          {% if r.sub_fa %}
+          <td class="cat">{{ r.sub_fa }}<br><span class="en">{{ r.sub_en }}</span></td>
+          {% else %}
+          <td>&mdash;</td>
+          {% endif %}
+          <td>
+            <span class="badge {{ 'unknown' if not r.is_confident else '' }}">{{ r.method }}</span>
+            {% if r.matched_phrase %}<div class="conf">«{{ r.matched_phrase }}»</div>{% endif %}
+          </td>
+          <td class="conf">{{ r.confidence_pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <footer>Hybrid rule + ML classifier &middot; food_menu_classifier</footer>
+</main>
+</body>
+</html>
